@@ -156,10 +156,10 @@ class ChatGPTBrowser:
         )
 
         if self.session_file.exists():
-            logger.info("♻️  Restoring saved session from %s", self.session_file)
+            logger.info("Restoring saved session from %s", self.session_file)
             context_kwargs["storage_state"] = str(self.session_file)
         else:
-            logger.info("🆕 No saved session — will do fresh Google login")
+            logger.info("No saved session found; proceeding with fresh Google login")
 
         self._context = await self._browser.new_context(**context_kwargs)
 
@@ -192,26 +192,26 @@ class ChatGPTBrowser:
         finally:
             if self._playwright:
                 await self._playwright.stop()
-            logger.info("🛑 Browser stopped cleanly")
+            logger.info("Browser context and instance closed cleanly")
 
     # ── Login ──────────────────────────────────────────────────────────────────
 
     async def _ensure_logged_in(self) -> None:
         """Navigate to ChatGPT. Login only if session is missing or expired."""
-        logger.info("🌐 Loading ChatGPT…")
+        logger.info("Navigating to ChatGPT service")
         await self._page.goto(CHATGPT_URL, wait_until="domcontentloaded")
         # networkidle confirms JS has settled — replaces all fixed delays here
         await self._page.wait_for_load_state("networkidle", timeout=20_000)
 
         if await self._is_logged_in():
-            logger.info("✅ Session valid — skipping login")
+            logger.info("Existing session valid; skipping login flow")
             return
 
-        logger.info("🔐 Session stale — starting Google OAuth…")
+        logger.info("Session invalid or expired; initiating Google OAuth flow")
         await self._do_google_login()
 
         await self._context.storage_state(path=str(self.session_file))
-        logger.info("💾 Session persisted to %s", self.session_file)
+        logger.info("Session state persisted to %s", self.session_file)
 
     async def _is_logged_in(self) -> bool:
         """Return True if the chat input box is present and visible."""
@@ -250,7 +250,7 @@ class ChatGPTBrowser:
         google_popup: Page = await popup_info.value
         await google_popup.wait_for_load_state("domcontentloaded")
         await google_popup.wait_for_load_state("networkidle", timeout=15_000)
-        logger.info("🪟 Google popup ready: %s", google_popup.url)
+        logger.info("Google OAuth popup ready at %s", google_popup.url)
 
         try:
             # Step 3 — Email
@@ -267,7 +267,7 @@ class ChatGPTBrowser:
             await safe_click(google_popup.locator(SEL_GOOGLE_SIGN_IN))
 
             # Step 5 — wait_for_url detects the redirect back to ChatGPT cleanly
-            logger.info("⏳ Awaiting OAuth redirect…")
+            logger.info("Awaiting OAuth redirect resolution")
             await page.wait_for_url("**chatgpt.com/**", timeout=30_000)
             await page.wait_for_load_state("networkidle", timeout=20_000)
 
@@ -275,13 +275,13 @@ class ChatGPTBrowser:
             await page.wait_for_selector(
                 SEL_CHAT_INPUT, state="visible", timeout=15_000
             )
-            logger.info("✅ Google OAuth login successful")
+            logger.info("Google OAuth login successful; chat input verified")
 
         except Exception:
             screenshot_path = "/tmp/login-failure.png"
             await google_popup.screenshot(path=screenshot_path, full_page=True)
             logger.exception(
-                "❌ Login failed — debug screenshot at %s", screenshot_path
+                "Login failure encountered. Debug screenshot saved at %s", screenshot_path
             )
             raise
 
@@ -326,7 +326,7 @@ class ChatGPTBrowser:
             logger.debug("Send button not clickable — using Enter key")
             await chat_input.press("Enter")
 
-        logger.info("📤 Prompt submitted (%d chars): %.60s…", len(prompt), prompt)
+        logger.info("Prompt submitted (length: %d chars)", len(prompt))
 
         # ── FIX: use native Playwright locator instead of wait_for_function ────
         # wait_for_function evals a JS string in the browser — any quote in the
@@ -368,24 +368,24 @@ class ChatGPTBrowser:
                     final_text = await current_block.inner_text()
                     if len(final_text) > len(last_text):
                         yield final_text[len(last_text):]
-                    logger.info("✅ Generation complete — %d chars total", len(final_text))
+                    logger.info("Response generation complete (length: %d chars)", len(final_text))
                     return
 
                 await asyncio.sleep(0.2)
 
         except PlaywrightTimeout as exc:
-            logger.error("⏱ Playwright timeout in stream loop: %s", exc)
+            logger.error("Playwright timeout encountered in stream loop: %s", exc)
             await page.screenshot(path="/tmp/stream-timeout.png", full_page=True)
             yield "\n\n[Error: Playwright timed out — screenshot at /tmp/stream-timeout.png]"
             return
 
         except Exception as exc:
-            logger.exception("💥 Unexpected error in stream loop: %s", exc)
+            logger.exception("Unexpected error encountered in stream loop: %s", exc)
             yield f"\n\n[Error: {exc}]"
             return
 
         # Reached only if the hard deadline elapsed without completion
-        logger.warning("⏱ Hard deadline (%ds) hit — partial response returned", self.response_timeout)
+        logger.warning("Hard deadline (%ds) reached; returning partial response", self.response_timeout)
         yield "\n\n[Response timed out — increase RESPONSE_TIMEOUT in .env if needed]"
 
     async def _is_generation_done(self, page: Page) -> bool:
@@ -411,11 +411,11 @@ class ChatGPTBrowser:
     async def screenshot(self, path: str = "/tmp/chatgpt-debug.png") -> str:
         """Take a full-page screenshot — handy for debugging selector failures."""
         await self._page.screenshot(path=path, full_page=True)
-        logger.info("📸 Screenshot saved: %s", path)
+        logger.info("Screenshot successfully captured and saved at: %s", path)
         return path
 
     async def invalidate_session(self) -> None:
         """Delete the persisted session file — next start() will re-authenticate."""
         if self.session_file.exists():
             self.session_file.unlink()
-            logger.info("🗑  Session cleared — next start will prompt Google login")
+            logger.info("Session file cleared. Complete re-authentication required on next start")
