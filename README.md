@@ -1,4 +1,4 @@
-# ChatGPT Scraper API
+# tempLLM
 
 FastAPI server that scrapes ChatGPT via Playwright and exposes the responses through a clean REST API.
 
