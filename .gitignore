@@ -3,3 +3,11 @@
 __pycache__
 session.json
 *.png
+./context/*
+chrome_profile/
+logs/
+skills/
+*_log*.txt
+test_*.py
+.vscode/
+context/
