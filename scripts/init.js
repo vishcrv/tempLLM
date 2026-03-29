@@ -108,8 +108,31 @@ function chromeHint({ platform, distro }) {
 
 function chromeDebugCmd(chromePath, { platform }) {
   const dataDir = path.join(os.tmpdir(), "chrome-cdp-profile");
-  const chrome  = chromePath.includes(" ") ? `"${chromePath}"` : chromePath;
-  return `${chrome} --remote-debugging-port=9222 --user-data-dir="${dataDir}"`;
+  if (platform === "win32") {
+    // cmd.exe needs: start "" "path with spaces" args
+    return `start "" "${chromePath}" --remote-debugging-port=9222 --user-data-dir="${dataDir}"`;
+  }
+  const chrome = chromePath.includes(" ") ? `"${chromePath}"` : chromePath;
+  return `${chrome} --remote-debugging-port=9222 --user-data-dir="${dataDir}" &`;
+}
+
+function launchChrome(chromePath) {
+  const dataDir = path.join(os.tmpdir(), "chrome-cdp-profile");
+  const args = [
+    `--remote-debugging-port=9222`,
+    `--user-data-dir=${dataDir}`,
+  ];
+  try {
+    const child = require("child_process").spawn(chromePath, args, {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: false,
+    });
+    child.unref();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ── Readline helper ───────────────────────────────────────────────────────────
@@ -183,10 +206,20 @@ async function run() {
       if (!cont) { rl.close(); return; }
     }
 
-    const cmd = chromeDebugCmd(chrome || "google-chrome", os);
-    console.log(`\n${c.bold}Step 1 — Open Chrome with remote debugging:${c.reset}`);
-    console.log(`\n  ${c.cyan}${cmd}${c.reset}`);
-    console.log(`\n${c.dim}Log in to ChatGPT in that window, then come back here.${c.reset}`);
+    const chromePath = chrome || "google-chrome";
+    console.log(`\n${c.bold}Step 1 — Opening Chrome with remote debugging...${c.reset}`);
+    const launched = launchChrome(chromePath);
+
+    if (launched) {
+      console.log(`${ok}  Chrome launched with CDP on port 9222`);
+      console.log(`\n${c.dim}A Chrome window should have opened.${c.reset}`);
+      console.log(`${c.dim}Log in to ChatGPT in that window, then come back here.${c.reset}`);
+    } else {
+      const cmd = chromeDebugCmd(chromePath, os);
+      console.log(`${warn}  Could not auto-launch Chrome. Run this manually:\n`);
+      console.log(`  ${c.cyan}${cmd}${c.reset}`);
+      console.log(`\n${c.dim}Log in to ChatGPT in that window, then come back here.${c.reset}`);
+    }
 
     await confirm(rl, "\nDone logging in?");
 
@@ -221,9 +254,10 @@ async function run() {
   }
 
   console.log(`\n${c.green}${c.bold}✓ Setup complete!${c.reset}`);
-  console.log(`\nStart the server:  ${c.cyan}${py.bin} run.py${c.reset}`);
-  console.log(`Then prompt:       ${c.cyan}templlm "hello"${c.reset}`);
-  console.log(`Or streaming:      ${c.cyan}templlm --stream "hello"${c.reset}\n`);
+  console.log(`\n${c.bold}Try it:${c.reset}`);
+  console.log(`  ${c.cyan}templlm "hello"${c.reset}       one-shot prompt`);
+  console.log(`  ${c.cyan}templlm${c.reset}               interactive chat\n`);
+  console.log(`${c.dim}The server starts automatically — no extra steps needed.${c.reset}\n`);
 
   rl.close();
 }

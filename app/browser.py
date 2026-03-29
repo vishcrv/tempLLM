@@ -271,7 +271,10 @@ class ChatGPTBrowser:
 
         if "chatgpt.com" not in self._page.url:
             await self._page.goto(CHATGPT_URL, wait_until="domcontentloaded")
-            await self._page.wait_for_load_state("networkidle", timeout=20_000)
+            try:
+                await self._page.wait_for_load_state("networkidle", timeout=60_000)
+            except PlaywrightTimeout:
+                logger.warning("CDP networkidle timed out — continuing anyway")
 
         if not await self._is_logged_in():
             raise RuntimeError(
@@ -323,7 +326,10 @@ class ChatGPTBrowser:
         )
 
         await self._page.goto(CHATGPT_URL, wait_until="domcontentloaded")
-        await self._page.wait_for_load_state("networkidle", timeout=20_000)
+        try:
+            await self._page.wait_for_load_state("networkidle", timeout=60_000)
+        except PlaywrightTimeout:
+            logger.warning("Fallback networkidle timed out — continuing anyway")
 
         if not await self._is_logged_in():
             screenshot = "./session-required.png"
@@ -370,8 +376,11 @@ class ChatGPTBrowser:
         page = self._page
 
         await page.goto(CHATGPT_NEW, wait_until="domcontentloaded")
-        await page.wait_for_selector(SEL_CHAT_INPUT, state="visible", timeout=15_000)
-        await page.wait_for_load_state("networkidle", timeout=15_000)
+        await page.wait_for_selector(SEL_CHAT_INPUT, state="visible", timeout=30_000)
+        try:
+            await page.wait_for_load_state("networkidle", timeout=30_000)
+        except PlaywrightTimeout:
+            logger.debug("networkidle timed out on prompt page — continuing")
 
         prior_count = await page.locator(SEL_RESPONSE_BLOCK).count()
 
