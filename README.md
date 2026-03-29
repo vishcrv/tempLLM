@@ -2,75 +2,198 @@
 
 # tempLLM
 
-**local llm api for testing & demos**
+**local chatgpt api — no sdk, no api key**
 
-spin it up · hit an endpoint · get a response
+spin up a local server · hit clean REST endpoints · get responses
 
 </div>
 
 ---
 
-## overview
+## how it works
 
-templlm wraps an llm session in a fastapi server that drives a live browser session via playwright and exposes 
-the responses as clean rest endpoints. no sdk, no api key.
+templlm drives a live browser session via Playwright and exposes it as a FastAPI server with REST endpoints. the `templlm` CLI talks to that server over HTTP.
 
-built for internal testing, rapid prototyping, and
-wiring llm responses into tools or demos without production overhead.
-
-
-
-## requirements
-
-| dependency | version |
-|------------|---------|
-| python | 3.11+ |
-| google chrome | any recent |
+```
+templlm "prompt"  →  POST /ask  →  FastAPI server  →  Playwright  →  ChatGPT  →  response
+```
 
 ---
 
-## quickstart
+## requirements
+
+| dependency | version | notes |
+|------------|---------|-------|
+| Node.js    | 18+     | runs the CLI |
+| Python     | 3.8+    | runs the server |
+| Google Chrome | any recent | for authenticated mode (recommended) |
+
+---
+
+## install
+
+### option A — npm (recommended)
 
 ```bash
-# 1. install dependencies
-pip install -r requirements.txt
-playwright install chromium
-
-# 2. configure
-cp .env.example .env
-
-# 3. start
-python run.py
+npm install -g templlm
+templlm init        # interactive setup wizard
 ```
 
-when you see this, you're ready:
+### option B — clone the repo
+
+```bash
+git clone https://github.com/YOUR_USER/tempLLM.git
+cd tempLLM
+npm install         # installs pip packages + playwright chromium automatically
+npm install -g .    # puts `templlm` in your PATH
+templlm init        # interactive setup wizard
+```
+
+---
+
+## setup wizard
+
+`templlm init` detects your OS and walks you through everything:
 
 ```
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+┌────────────────────────────────────────┐
+│          templlm  ·  setup wizard       │
+└────────────────────────────────────────┘
+
+Detected OS:  Linux (Arch Linux)
+Python:       ✓ 3.11.0  (python3)
+
+Which connection mode?
+  1  Mode A — CDP  (recommended)  Connect to your own Chrome with an active session
+  2  Mode B — Headless            Playwright launches Chromium in the background
+
+›
 ```
+
+It then prints the exact Chrome launch command for your OS, writes `.env` automatically, and optionally runs the login flow.
+
+---
+
+## platform setup
+
+<details>
+<summary><strong>Linux</strong></summary>
+
+```bash
+# Arch / Manjaro
+sudo pacman -S python python-pip nodejs npm
+yay -S google-chrome          # for Mode A (CDP)
+
+# Ubuntu / Debian
+sudo apt install python3 python3-pip nodejs npm
+# Chrome: https://google.com/chrome
+
+# Fedora
+sudo dnf install python3 python3-pip nodejs npm
+sudo dnf install google-chrome-stable
+
+npm install -g templlm
+templlm init
+```
+
+**PATH note:** npm global bins land in `~/.local/bin`. Make sure it's in your PATH:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc    # zsh
+source ~/.bashrc   # or open a new terminal
+```
+
+</details>
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+```bash
+# Install prerequisites via Homebrew
+brew install python node
+brew install --cask google-chrome    # for Mode A (CDP)
+
+npm install -g templlm
+templlm init
+```
+
+</details>
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+```powershell
+# Install prerequisites via winget
+winget install Python.Python.3
+winget install OpenJS.NodeJS
+winget install Google.Chrome        # for Mode A (CDP)
+
+npm install -g templlm
+templlm init
+```
+
+Or use [Chocolatey](https://chocolatey.org/):
+
+```powershell
+choco install python nodejs googlechrome
+npm install -g templlm
+templlm init
+```
+
+**Note:** Run PowerShell as Administrator for global npm installs, or configure a user-local npm prefix:
+
+```powershell
+npm config set prefix "$env:APPDATA\npm"
+# add %APPDATA%\npm to your PATH in System Environment Variables
+```
+
+</details>
+
+---
+
+## usage
+
+```bash
+templlm init                          # first-time setup
+templlm "give me a bubble sort"       # single response
+templlm --stream "explain async/await"  # streaming response
+templlm --setup                       # re-run login (session expired)
+```
+
+The server starts automatically in the background when you run a prompt. No need to run `python run.py` manually.
 
 ---
 
 ## connection modes
 
-templlm picks its mode automatically on startup — **no config changes needed between them.**
+### mode A — CDP (recommended)
 
-<br>
+Connect to your existing Chrome with a live logged-in session.
 
-### ✦ mode a — authenticated *(recommended)*
-
-you open a chrome window with remote debugging, log in once, then start the server.
-the server connects to that live session.
-
-<br>
-
-**step 1 — open the debug chrome window**
-
-> this is an isolated chrome profile. it won't touch your regular browser.
+**1. Launch Chrome with remote debugging:**
 
 <details>
-<summary>windows — powershell</summary>
+<summary>Linux</summary>
+
+```bash
+google-chrome-stable --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-cdp-profile
+```
+
+</details>
+
+<details>
+<summary>macOS</summary>
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-cdp-profile
+```
+
+</details>
+
+<details>
+<summary>Windows (PowerShell)</summary>
 
 ```powershell
 & "C:\Program Files\Google\Chrome\Application\chrome.exe" `
@@ -80,48 +203,15 @@ the server connects to that live session.
 
 </details>
 
-<details>
-<summary>windows — cmd</summary>
+**2. Log in to ChatGPT in that window.**
 
-```cmd
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir=C:\temp\chrome-cdp-profile
-```
+**3. Run `templlm init` or set `CDP_URL=http://localhost:9222` in `.env`.**
 
-</details>
+> The Chrome profile is saved to `--user-data-dir` — you only log in once.
 
-<details>
-<summary>linux</summary>
+### mode B — headless
 
-```bash
-google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-cdp-profile
-```
-
-</details>
-
-<br>
-
-**step 2 — log in**
-
-in that chrome window, navigate to the llm provider's site and sign in with your account.
-
-**step 3 — start the server**
-
-```bash
-python run.py
-```
-
-the server will detect the open chrome window and connect automatically.
-
-> **tip:** you only need to log in once. the profile is saved to `--user-data-dir`, so next time you run the chrome command it'll already be authenticated.
-
-<br>
-
-### ✦ mode b — unauthenticated *(fallback)*
-
-don't open the debug chrome window. just run `python run.py` directly.
-
-the server launches its own chromium instance in the background.
-no login is performed — sessions are limited to what's available without authentication.
+Don't open Chrome. Just run `templlm "prompt"` and Playwright handles its own Chromium. Session is limited to unauthenticated access unless you have a saved `session.json`.
 
 ---
 
@@ -129,109 +219,55 @@ no login is performed — sessions are limited to what's available without authe
 
 | method | endpoint | description |
 |--------|----------|-------------|
-| `POST` | `/ask` | full json response |
-| `POST` | `/ask/stream` | server-sent events (sse) stream |
-| `GET` | `/health` | server & browser status |
-| `POST` | `/screenshot` | saves a debug screenshot, returns path |
-| `POST` | `/session/invalidate` | clears saved session |
+| `POST` | `/ask` | full JSON response |
+| `POST` | `/ask/stream` | server-sent events (SSE) stream |
+| `GET`  | `/health` | server & browser status |
+| `POST` | `/screenshot` | debug screenshot, returns path |
+| `POST` | `/session/invalidate` | clear saved session |
 
-interactive docs → [`http://localhost:8000/docs`](http://localhost:8000/docs)
+Interactive docs → `http://localhost:8000/docs`
 
 ---
 
-## test api
-
-### postman
-
-```
-POST  http://localhost:8000/ask
-Body  raw → JSON
-```
-
-```json
-{
-  "prompt": "give me a code for bubble sort"
-}
-```
-
-```json
-{
-  "status": "ok",
-  "response": "...",
-  "error": null
-}
-```
-
-<br>
+## test the api
 
 ### curl
 
-<details>
-<summary>linux / macos</summary>
-
 ```bash
-curl -X POST http://localhost:8000/ask \
+# Linux / macOS
+curl -X POST http://127.0.0.1:8000/ask \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "give me a code for bubble sort"}'
+  -d '{"prompt": "give me a bubble sort"}'
 ```
-
-</details>
-
-<details>
-<summary>windows — powershell</summary>
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/ask `
+# Windows PowerShell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/ask `
   -ContentType "application/json" `
-  -Body '{"prompt": "give me a code for bubble sort"}'
+  -Body '{"prompt": "give me a bubble sort"}'
 ```
 
-</details>
-
-<details>
-<summary>windows — cmd</summary>
-
-```cmd
-curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d "{\"prompt\": \"give me a code for bubble sort\"}"
-```
-
-</details>
-
-<br>
-
-### test_client.py
-
-included in the repo, stdlib only — no extra installs.
+### python test client (no extra installs)
 
 ```bash
-# json response
-python test_client.py "give me a code for bubble sort"
-
-# streaming response
-python test_client.py --stream "give me a code for bubble sort"
+python test_client.py "give me a bubble sort"
+python test_client.py --stream "give me a bubble sort"
 ```
 
 ---
 
 ## configuration
 
-all options live in `.env`:
-
 ```dotenv
-# ── mode ──────────────────────────────────────────────────────────────────────
-# point to your remote debug chrome instance (mode a).
-# if chrome isn't running, the server falls back to mode b automatically.
-CDP_URL=http://localhost:9222
+# .env
 
-# ── browser ───────────────────────────────────────────────────────────────────
-HEADLESS=false          # false shows the browser window in mode b
+CDP_URL=http://localhost:9222   # blank = Mode B (headless)
+
+HEADLESS=false                  # true = no visible browser in Mode B
 SESSION_FILE=./session.json
-
-# ── tuning ────────────────────────────────────────────────────────────────────
 SLOW_MO=0
 RESPONSE_TIMEOUT=120
 
-# ── server ────────────────────────────────────────────────────────────────────
 HOST=0.0.0.0
 PORT=8000
 ```
@@ -241,17 +277,26 @@ PORT=8000
 ## project structure
 
 ```
-templlm/
+tempLLM/
 │
 ├── app/
-│   ├── main.py          fastapi app + lifespan
+│   ├── main.py          FastAPI app + lifespan
 │   ├── config.py        env config
 │   ├── models.py        pydantic schemas
-│   ├── browser.py       playwright automation + mode detection
+│   ├── browser.py       Playwright automation + mode detection
 │   └── routes/
-│       └── ask.py       all endpoints
+│       └── ask.py       endpoints
 │
-├── run.py               entry point
-├── test_client.py       cli test client
-└── .env                 your local config
+├── bin/
+│   └── cli.js           npm CLI entry point
+│
+├── scripts/
+│   ├── init.js          interactive setup wizard
+│   └── postinstall.js   runs on npm install
+│
+├── run.py               server entry point
+├── cli.py               direct browser CLI (no server)
+├── test_client.py       HTTP test client
+├── requirements.txt     Python dependencies
+└── package.json         npm package
 ```

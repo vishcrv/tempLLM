@@ -12,7 +12,7 @@ import sys
 import json
 import urllib.request
 
-ENDPOINT = "http://localhost:8000"
+ENDPOINT = "http://127.0.0.1:8000"
 
 
 def ask_json(prompt: str) -> None:
