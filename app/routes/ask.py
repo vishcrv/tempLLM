@@ -105,9 +105,14 @@ async def health():
     from app.main import gpt_browser
     from app.config import SESSION_FILE, HEADLESS
 
+    browser_alive = False
+    if gpt_browser is not None:
+        browser_alive = await gpt_browser._is_browser_alive()
+
     return {
-        "status": "ok",
+        "status": "ok" if browser_alive else "degraded",
         "browser_ready": gpt_browser is not None,
+        "browser_alive": browser_alive,
         "headless": HEADLESS,
         "session_exists": os.path.exists(SESSION_FILE),
     }

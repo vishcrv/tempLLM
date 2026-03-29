@@ -365,12 +365,43 @@ class ChatGPTBrowser:
         except PlaywrightTimeout:
             return False
 
+    # ── Browser health & recovery ────────────────────────────────────────────
+
+    async def _is_browser_alive(self) -> bool:
+        """Return False if page/context/browser has been closed or crashed."""
+        try:
+            if self._page is None or self._page.is_closed():
+                return False
+            await self._page.evaluate("() => true")
+            return True
+        except Exception:
+            return False
+
+    async def _recover(self) -> None:
+        """Full teardown + restart when the browser is dead."""
+        logger.warning("Browser/page is dead — recovering (was mode %s)", self._mode)
+        await self.stop()
+        await self.start()
+        logger.info("Recovery complete (mode=%s)", self._mode)
+
     # ── Prompt & streaming ─────────────────────────────────────────────────────
 
     async def ask_stream(self, prompt: str) -> AsyncGenerator[str, None]:
         async with self._lock:
-            async for chunk in self._do_ask_stream(prompt):
-                yield chunk
+            if not await self._is_browser_alive():
+                await self._recover()
+            try:
+                async for chunk in self._do_ask_stream(prompt):
+                    yield chunk
+            except Exception as exc:
+                err = str(exc).lower()
+                if "has been closed" in err or "target closed" in err:
+                    logger.warning("Browser died mid-stream — recovering and retrying")
+                    await self._recover()
+                    async for chunk in self._do_ask_stream(prompt):
+                        yield chunk
+                else:
+                    raise
 
     async def _do_ask_stream(self, prompt: str) -> AsyncGenerator[str, None]:
         page = self._page
