@@ -233,12 +233,12 @@ async function run() {
     const envPath = path.join(ROOT, ".env");
     let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
     if (envContent.includes("CDP_URL=")) {
-      envContent = envContent.replace(/^CDP_URL=.*$/m, "CDP_URL=http://localhost:9222");
+      envContent = envContent.replace(/^CDP_URL=.*$/m, "CDP_URL=http://127.0.0.1:9222");
     } else {
-      envContent += "\nCDP_URL=http://localhost:9222\n";
+      envContent += "\nCDP_URL=http://127.0.0.1:9222\n";
     }
     fs.writeFileSync(envPath, envContent);
-    console.log(`\n${ok}  .env updated — CDP_URL=http://localhost:9222`);
+    console.log(`\n${ok}  .env updated — CDP_URL=http://127.0.0.1:9222`);
 
   } else {
     // ── Mode B ──

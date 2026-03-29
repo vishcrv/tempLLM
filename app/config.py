@@ -11,7 +11,7 @@ load_dotenv()
 #
 #  MODE A — CDP (recommended)
 #           Connect to an already-running Chrome via Chrome DevTools Protocol.
-#           Set CDP_URL=http://localhost:9222
+#           Set CDP_URL=http://127.0.0.1:9222
 #
 #  MODE B — Fallback (no login)
 #           Playwright launches fresh Chromium, restores session.json if it

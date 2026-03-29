@@ -89,7 +89,8 @@ async def _cdp_is_reachable(cdp_url: str, timeout: float = 2.0) -> bool:
     refused) — no Playwright connection attempt, no long timeout.
     Returns True only when Chrome is up and answering on that port.
     """
-    probe = cdp_url.rstrip("/") + "/json/version"
+    # Defensive fix: Avoid 2-second IPv6 DNS stall on 'localhost' for urllib
+    probe = cdp_url.replace("localhost", "127.0.0.1").rstrip("/") + "/json/version"
     loop  = asyncio.get_event_loop()
     try:
         await asyncio.wait_for(
