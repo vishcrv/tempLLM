@@ -2,7 +2,7 @@
 
 # tempLLM
 
-**local chatgpt api — no sdk, no api key**
+**local llm api — no sdk, no api key**
 
 spin up a local server · hit clean REST endpoints · get responses
 

@@ -16,6 +16,7 @@ const ROOT     = path.join(__dirname, "..");
 const LOG_FILE = path.join(os.tmpdir(), "templlm-server.log");
 
 const { detectPython } = require("../scripts/python");
+const { getMode, ensureBrowser } = require("../scripts/browser");
 const PYTHON = (detectPython() || {}).bin || "python";
 
 // ── Colours ─────────────────────────────────────────────────────────────────
@@ -126,6 +127,22 @@ async function ensureServer() {
   }
 }
 
+// ── Backend bootstrap (server + browser) ───────────────────────────────────
+
+async function ensureBackend() {
+  const mode = getMode();
+  if (mode === "cdp") {
+    process.stderr.write(`${c.dim}Checking browser...${c.reset}\n`);
+    const ok = await ensureBrowser();
+    if (!ok) {
+      console.error(`${c.red}CDP mode configured but Chrome not found.${c.reset} Run \`templlm init\` to reconfigure.`);
+      process.exit(1);
+    }
+    process.stderr.write(`${c.dim}Browser ready.${c.reset}\n`);
+  }
+  await ensureServer();
+}
+
 // ── HTTP post ───────────────────────────────────────────────────────────────
 
 function post(urlPath, body) {
@@ -211,17 +228,6 @@ async function repl() {
   });
 }
 
-// ── Setup command ───────────────────────────────────────────────────────────
-
-function runSetup() {
-  const cliPy = path.join(ROOT, "cli.py");
-  if (!fs.existsSync(cliPy)) {
-    console.error("cli.py not found — reinstall with: npm install -g templlm");
-    process.exit(1);
-  }
-  spawnSync(PYTHON, [cliPy, "--setup"], { stdio: "inherit", cwd: ROOT });
-}
-
 // ── Entry point ─────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -231,23 +237,21 @@ if (args[0] === "--help" || args[0] === "-h") {
   console.log("Usage:");
   console.log(`  ${c.cyan}templlm${c.reset}                — interactive chat`);
   console.log(`  ${c.cyan}templlm "prompt"${c.reset}       — one-shot response`);
-  console.log(`  ${c.cyan}templlm status${c.reset}           — check backend server up/down`);
-  console.log(`  ${c.cyan}templlm init${c.reset}           — setup wizard`);
-  console.log(`  ${c.cyan}templlm --setup${c.reset}        — re-run login`);
+  console.log(`  ${c.cyan}templlm status${c.reset}         — check / manage backend`);
+  console.log(`  ${c.cyan}templlm init${c.reset}           — first-time setup wizard`);
   process.exit(0);
 }
 
-if (args[0] === "--setup") { runSetup(); process.exit(0); }
-if (args[0] === "init")    { require("../scripts/init.js"); }
-if (args[0] === "status")  { require("../scripts/status.js"); }
+if (args[0] === "init")   { require("../scripts/init.js"); }
+if (args[0] === "status") { require("../scripts/status.js"); }
 
 else {
   const prompt = args.join(" ");
 
   (async () => {
     try {
-      await ensureServer();
-      
+      await ensureBackend();
+
       console.log(`\n${c.green}● API is ACTIVE at http://0.0.0.0:8000${c.reset}`);
       console.log(`${c.dim}  You can now use /ask or /ask/stream in external projects!${c.reset}\n`);
       

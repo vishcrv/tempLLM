@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-const { execSync, spawnSync } = require("child_process");
+const { execSync } = require("child_process");
 const readline = require("readline");
 const os       = require("os");
 const path     = require("path");
@@ -253,10 +253,7 @@ async function run() {
     fs.writeFileSync(envPath, envContent);
     console.log(`${ok}  .env updated — CDP_URL cleared`);
 
-    const runSetup = await confirm(rl, "\nRun first-time session setup now? (opens a browser window to log in)");
-    if (runSetup) {
-      spawnSync(py.bin, [path.join(ROOT, "cli.py"), "--setup"], { stdio: "inherit", cwd: ROOT });
-    }
+    console.log(`${c.dim}Run \`templlm\` to start the server — it will open a browser window for login on first use.${c.reset}`);
   }
 
   console.log(`\n${c.green}${c.bold}✓ Setup complete!${c.reset}`);

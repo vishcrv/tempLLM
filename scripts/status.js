@@ -5,14 +5,14 @@ const http = require("http");
 const net = require("net");
 const path = require("path");
 const readline = require("readline");
-const { spawnSync, spawn, execSync } = require("child_process");
+const { spawnSync, spawn } = require("child_process");
 const os = require("os");
 const fs = require("fs");
 const { detectPython } = require("./python");
+const { getMode, ensureBrowser, CDP_PORT } = require("./browser");
 
 const HOST = "127.0.0.1";
 const PORT = 8000;
-const CDP_PORT = 9222;
 const ROOT = path.join(__dirname, "..");
 const LOG_FILE = path.join(os.tmpdir(), "templlm-server.log");
 
@@ -48,98 +48,10 @@ async function confirm(rl, question, defaultYes = true) {
   return ans === "y" || ans === "yes";
 }
 
-// ── Chrome detection ──────────────────────────────────────────────────────────
-function detectChrome() {
-  const win32 = [
-    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-  ];
-  if (process.env.LOCALAPPDATA) {
-    win32.push(path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"));
-  }
-
-  const candidates = {
-    win32,
-    darwin: [
-      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    ],
-    linux:  [
-      "/usr/bin/google-chrome-stable",
-      "/usr/bin/google-chrome",
-      "/usr/bin/chromium",
-      "/usr/bin/chromium-browser",
-      "/snap/bin/chromium",
-    ],
-  };
-
-  for (const p of (candidates[process.platform] || candidates.linux)) {
-    if (fs.existsSync(p)) return p;
-  }
-
-  const lookupCmd = process.platform === "win32" ? "where" : "which";
-  for (const bin of ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"]) {
-    try { execSync(`${lookupCmd} ${bin}`, { stdio: "ignore" }); return bin; } catch {}
-  }
-  return null;
-}
-
-function launchChrome(chromePath) {
-  const dataDir = path.join(os.tmpdir(), "chrome-cdp-profile");
-  const args = [
-    `--remote-debugging-port=${CDP_PORT}`,
-    `--user-data-dir=${dataDir}`,
-  ];
-  try {
-    const child = spawn(chromePath, args, {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: false,
-    });
-    child.unref();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function startBrowser() {
-  console.log(`${c.dim}Checking browser...${c.reset}`);
-  if (await isPortOpen(CDP_PORT)) {
-    console.log(`${c.dim}Browser is already running.${c.reset}`);
-    return true;
-  }
-  const chromePath = detectChrome();
-  if (!chromePath) {
-    console.log(`${c.red}Chrome not found. Cannot launch browser.${c.reset}`);
-    return false;
-  }
-  console.log(`${c.dim}Starting browser on port ${CDP_PORT}...${c.reset}`);
-  if (launchChrome(chromePath)) {
-    for (let i = 0; i < 20; i++) {
-        await new Promise(r => setTimeout(r, 500));
-        if (await isPortOpen(CDP_PORT)) {
-            console.log(`${c.green}✓ Browser started (CDP on ${CDP_PORT})${c.reset}`);
-            return true;
-        }
-    }
-  }
-  console.log(`${c.red}✗ Failed to start browser.${c.reset}`);
-  return false;
-}
-
-async function killBrowser() {
-  console.log(`${c.dim}Stopping Chrome...${c.reset}`);
-  if (process.platform === "win32") {
-    spawnSync("powershell.exe", ["-Command", `Stop-Process -Name 'chrome' -PassThru | Where-Object {$_.CommandLine -match '${CDP_PORT}'}`], { stdio: "ignore" });
-  } else {
-    spawnSync("pkill", ["-f", `--remote-debugging-port=${CDP_PORT}`]);
-  }
-}
-
 async function startServer() {
   const runPy = path.join(ROOT, "run.py");
   console.log(`${c.dim}Starting server...${c.reset}`);
-  
+
   const logFd = fs.openSync(LOG_FILE, "w");
   const child = spawn(PYTHON, [runPy], {
     detached:     true,
@@ -169,7 +81,7 @@ async function killServer() {
   } else {
     spawnSync("pkill", ["-f", "run.py"]);
   }
-  
+
   for (let i = 0; i < 10; i++) {
     if (!(await isPortOpen(PORT))) {
       console.log(`${c.green}✓ Server turned off.${c.reset}`);
@@ -180,44 +92,85 @@ async function killServer() {
   console.log(`${c.red}✗ Could not fully confirm server shutdown.${c.reset}`);
 }
 
+async function killBrowser() {
+  console.log(`${c.dim}Stopping Chrome...${c.reset}`);
+  if (process.platform === "win32") {
+    spawnSync("powershell.exe", ["-Command", `Stop-Process -Name 'chrome' -PassThru | Where-Object {$_.CommandLine -match '${CDP_PORT}'}`], { stdio: "ignore" });
+  } else {
+    spawnSync("pkill", ["-f", `--remote-debugging-port=${CDP_PORT}`]);
+  }
+}
+
 async function run() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  
-  console.log(`\n${c.bold}templlm Server Status${c.reset}`);
-  const up = await isPortOpen(PORT);
-  
-  let shouldMonitor = false;
 
-  if (up) {
-    console.log(`Status: ${c.green}● UP (Running on port ${PORT})${c.reset}\n`);
+  const mode      = getMode();
+  const serverUp  = await isPortOpen(PORT);
+  const browserUp = mode === "cdp" ? await isPortOpen(CDP_PORT) : true;
+  const active    = serverUp && browserUp;
+
+  console.log(`\n${c.bold}templlm Status${c.reset}  ${c.dim}(mode: ${mode})${c.reset}`);
+
+  if (active) {
+    console.log(`API: ${c.green}● ACTIVE${c.reset}`);
+    if (mode === "cdp") {
+      console.log(`  ${c.dim}Server: port ${PORT} ✓   Browser (CDP): port ${CDP_PORT} ✓${c.reset}`);
+    } else {
+      console.log(`  ${c.dim}Server: port ${PORT} ✓${c.reset}`);
+    }
+    console.log();
+
     const turnOff = await confirm(rl, "Do you want to turn it off?", true);
     if (turnOff) {
       await killServer();
-      await killBrowser();
+      if (mode === "cdp") await killBrowser();
       rl.close();
       return;
-    } else {
-      console.log("Monitoring processes...");
-      shouldMonitor = true;
     }
+    console.log(`${c.dim}[Supervisor] Monitoring... Press Ctrl+C to stop.${c.reset}`);
+
+  } else if (serverUp && !browserUp) {
+    // Server up but browser missing (Mode A only)
+    console.log(`API: ${c.yellow}◑ PARTIAL${c.reset}  ${c.dim}(server running, browser not detected on port ${CDP_PORT})${c.reset}\n`);
+
+    const fix = await confirm(rl, "Start the browser to make the API fully active?", true);
+    if (fix) {
+      const ok = await ensureBrowser();
+      if (ok) {
+        console.log(`${c.green}✓ Browser started. API is now ACTIVE.${c.reset}`);
+        console.log(`${c.dim}[Supervisor] Monitoring... Press Ctrl+C to stop.${c.reset}`);
+      } else {
+        console.log(`${c.red}✗ Could not start browser. Run \`templlm init\` to reconfigure.${c.reset}`);
+        rl.close();
+        return;
+      }
+    } else {
+      rl.close();
+      return;
+    }
+
   } else {
-    console.log(`Status: ${c.dim}○ DOWN (Not running)${c.reset}\n`);
+    // Fully down
+    console.log(`API: ${c.dim}○ DOWN${c.reset}\n`);
+
     const turnOn = await confirm(rl, "Do you want to start it?", true);
     if (turnOn) {
-      const browserUp = await startBrowser();
-      if (!browserUp) {
-         console.log(`${c.red}Cannot start server without browser.${c.reset}`);
-         rl.close();
-         return;
+      if (mode === "cdp") {
+        const browserOk = await ensureBrowser();
+        if (!browserOk) {
+          console.log(`${c.red}Cannot start: Chrome not found. Run \`templlm init\` to configure.${c.reset}`);
+          rl.close();
+          return;
+        }
       }
-      const serverUp = await startServer();
-      if (!serverUp) {
-         await killBrowser();
-         rl.close();
-         return;
+      const serverOk = await startServer();
+      if (!serverOk) {
+        if (mode === "cdp") await killBrowser();
+        rl.close();
+        return;
       }
-      console.log(`\n${c.dim}[Supervisor] Monitoring browser and server... Press Ctrl+C to stop.${c.reset}`);
-      shouldMonitor = true;
+      console.log(`\n${c.green}● API is ACTIVE${c.reset}`);
+      console.log(`${c.dim}[Supervisor] Monitoring... Press Ctrl+C to stop.${c.reset}`);
     } else {
       console.log("Server remains off.");
       rl.close();
@@ -227,23 +180,22 @@ async function run() {
 
   rl.close();
 
-  if (shouldMonitor) {
-    setInterval(async () => {
-       const browserUp = await isPortOpen(CDP_PORT);
-       const serverUp = await isPortOpen(PORT);
-       
-       if (!browserUp || !serverUp) {
-          if (!browserUp) {
-              console.log(`\n${c.red}Browser closed! Shutting down server and exiting.${c.reset}`);
-          } else {
-              console.log(`\n${c.red}Server process died! Closing browser and exiting.${c.reset}`);
-          }
-          await killServer();
-          await killBrowser();
-          process.exit(1);
-       }
-    }, 3000);
-  }
+  // ── Supervisor loop ─────────────────────────────────────────────────────────
+  setInterval(async () => {
+    const sUp = await isPortOpen(PORT);
+    const bUp = mode === "cdp" ? await isPortOpen(CDP_PORT) : true;
+
+    if (!sUp || !bUp) {
+      if (!bUp) {
+        console.log(`\n${c.red}Browser closed! Shutting down server and exiting.${c.reset}`);
+      } else {
+        console.log(`\n${c.red}Server process died! Closing browser and exiting.${c.reset}`);
+      }
+      await killServer();
+      if (mode === "cdp") await killBrowser();
+      process.exit(1);
+    }
+  }, 3000);
 }
 
 run().catch(e => {

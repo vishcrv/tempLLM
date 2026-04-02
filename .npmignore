@@ -1,0 +1,21 @@
+# Python artifacts
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Runtime / secrets
+.env
+session.json
+*.png
+
+# Dev / test
+test_*.py
+commits/
+.claude/
+.vscode/
+.git/
+
+# Logs
+logs/
+*_log*.txt

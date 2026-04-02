@@ -1,9 +1,11 @@
 {
   "name": "templlm",
   "version": "1.0.0",
-  "description": "CLI client for ChatGPT via local Playwright server",
+  "description": "Use any LLM right from your terminal — powered by a local Playwright server",
+  "author": "vishcrv",
+  "license": "MIT",
   "bin": {
-    "templlm": "./bin/cli.js"
+    "templlm": "bin/cli.js"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js"
@@ -12,13 +14,18 @@
     "bin/",
     "app/",
     "run.py",
-    "cli.py",
     "requirements.txt",
     "scripts/"
   ],
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["llm", "chatgpt", "cli", "playwright"],
-  "license": "MIT"
+  "keywords": [
+    "llm",
+    "chatgpt",
+    "cli",
+    "playwright",
+    "terminal",
+    "ai"
+  ]
 }
