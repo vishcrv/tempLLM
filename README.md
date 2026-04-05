@@ -1,66 +1,69 @@
 <div align="center">
   <br />
   <h1>tempLLM</h1>
-  <p><strong>a free, LLM - local API no key, no cost, no SDK.</strong></p>
-  <p>Spin up a server once. Hit REST endpoints from any project, any language, forever.</p>
+  <p><strong>your browser is the API key.</strong></p>
+  <p>pipe prompts through any LLM tab. get REST responses back.</p>
+  <p><code>no key · no cost · no SDK</code></p>
   <br />
-
+  
   [![npm version](https://img.shields.io/npm/v/templlm?style=flat-square&color=black)](https://www.npmjs.com/package/templlm)
   [![npm downloads](https://img.shields.io/npm/dm/templlm?style=flat-square&color=black)](https://www.npmjs.com/package/templlm)
   [![license](https://img.shields.io/npm/l/templlm?style=flat-square&color=black)](./LICENSE)
   [![node](https://img.shields.io/badge/node-18%2B-black?style=flat-square)](https://nodejs.org)
+</div>
 
-  <br />
+<br />
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="140">
+        <img src="./assets/openai.svg" width="28" height="28" alt="OpenAI" /><br />
+        <strong>ChatGPT</strong><br />
+        <sub>live</sub>
+      </td>
+      <td align="center" width="140">
+        <img src="./assets/claude-color.svg" width="28" height="28" alt="Claude" /><br />
+        <strong>Claude</strong><br />
+        <sub>wip</sub>
+      </td>
+    </tr>
+  </table>
 </div>
 
 ---
 
-## Overview
+## overview
 
-tempLLM uses the **Chrome DevTools Protocol (CDP)** to drive a real browser session and exposes it as a local HTTP API. Call it from Python, JavaScript, Go, curl — anything that can make an HTTP request gets free LLM access.
+LLM providers give you their best models for free through a chat tab. Want the same models via API? That costs money. tempLLM bridges the gap.
+
+It connects to your browser session via **Chrome DevTools Protocol**, watches the chat, and exposes it as a local REST API. Any language, any framework, any project, if it can hit `localhost`, it can talk to your LLM.
 
 ```
-your app  ──►  POST localhost:8000/ask  ──►  templlm  ──►  CDP  ──►  browser  ──►  LLM  ──►  response
+your app  →  POST localhost:8000/ask  →  templlm  →  CDP  →  browser  →  LLM  →  response
 ```
 
-No API key. No billing page. No rate limit emails. Just a local server you own and control.
+No API key. No billing page. No rate limits. Just a server you own, talking to a browser you own, using a session you already have.
 
-> **Disclaimer:** tempLLM is a personal learning project built to explore browser automation with Playwright and the Chrome DevTools Protocol. It is intended strictly for **educational and experimental use**. This project is not affiliated with, endorsed by, or sponsored by OpenAI. Users are responsible for complying with OpenAI's Terms of Service. The author does not encourage using this tool in ways that violate any platform's terms.
+> [!WARNING]
+> tempLLM is built to explore browser automation via Playwright and CDP. **Educational and experimental use only.** Not affiliated with or endorsed by OpenAI or Anthropic. Users are responsible for complying with each platform's Terms of Service.
 
 ---
 
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Terminal Usage](#terminal-usage)
-- [API Usage](#api-usage)
-- [Endpoints](#endpoints)
-- [Supported Models](#supported-models)
-- [Installation](#installation)
-- [Setup](#setup)
-- [Connection Modes](#connection-modes)
-- [CLI Reference](#cli-reference)
-- [Configuration](#configuration)
-- [Platform Setup](#platform-setup)
-
----
-
-## Quick Start
+## quick start
 
 ```bash
-npm install -g templlm   
-templlm init             # one-time setup 
+npm install -g templlm
+templlm init
 ```
 
 That's it. The server starts automatically the first time you use it.
 
 ---
 
-## Terminal Usage
+## terminal usage
 
 No code needed. Use it straight from your terminal.
-
-**Quick one-liners:**
 
 ```bash
 templlm "what's the difference between Promise.all and Promise.allSettled?"
@@ -68,36 +71,39 @@ templlm "write a debounce function in TypeScript with proper types"
 templlm "explain what EXPLAIN ANALYZE does in Postgres"
 ```
 
-**Interactive session** (context retained across messages):
+**Interactive session** — context retained across messages:
 
 ```bash
 $ templlm
 ```
 
 ```
-you  > I'm getting "cannot read properties of undefined (reading 'map')" in React
+you  ›  I'm getting "cannot read properties of undefined (reading 'map')" in React
 
-llm  > You're likely rendering before your data loads.
-       Add a guard before the map: if (!data) return null
+llm  ›  You're likely rendering before your data loads.
+        Add a guard: if (!data) return null
 
-you  > state is initialised as undefined, would that cause it?
+you  ›  state is initialised as undefined, would that cause it?
 
-llm  > Yes. Change useState() to useState([])
-       Undefined breaks .map() — an empty array won't.
+llm  ›  Yes. Change useState() to useState([])
+        Undefined breaks .map() — an empty array won't.
 
-you  > should I even use useEffect for fetching or is there something better?
+you  ›  should I even use useEffect for fetching or is there something better?
 
-llm  > Fine for simple cases. For anything serious, use React Query or SWR.
-       They handle loading states, caching, and refetching out of the box.
+llm  ›  Fine for simple cases. For anything serious, use React Query or SWR.
+        They handle loading states, caching, and refetching out of the box.
 ```
 
 ---
 
-## API Usage
+## API usage
 
-Once the server is running, your projects can talk to it directly.
+Once the server is running, any project can talk to it.
 
-**Python**
+<details>
+<summary><b>Python</b></summary>
+<br />
+
 ```python
 import requests
 
@@ -108,7 +114,12 @@ response = requests.post("http://localhost:8000/ask", json={
 print(response.json()["response"])
 ```
 
-**JavaScript / Node**
+</details>
+
+<details>
+<summary><b>JavaScript / Node</b></summary>
+<br />
+
 ```javascript
 const res = await fetch("http://localhost:8000/ask", {
   method: "POST",
@@ -119,7 +130,12 @@ const res = await fetch("http://localhost:8000/ask", {
 const { response } = await res.json();
 ```
 
-**Streaming (SSE)**
+</details>
+
+<details>
+<summary><b>Streaming (SSE)</b></summary>
+<br />
+
 ```javascript
 const res = await fetch("http://localhost:8000/ask/stream", {
   method: "POST",
@@ -132,186 +148,109 @@ for await (const chunk of res.body) {
 }
 ```
 
-**curl**
+</details>
+
+<details>
+<summary><b>curl</b></summary>
+<br />
+
 ```bash
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
   -d '{"prompt": "give me a bubble sort in Python"}'
 ```
 
----
-
-## Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/ask` | Full response as JSON |
-| `POST` | `/ask/stream` | Streaming response via SSE |
-| `GET` | `/health` | Server + browser status |
-| `POST` | `/screenshot` | Debug screenshot |
-| `POST` | `/session/invalidate` | Clear saved session |
-
-> Interactive API docs available at `http://localhost:8000/docs` when the server is running.
+</details>
 
 ---
 
-## Models & Features
+## endpoints
 
-**LLMs**
+| Method | Endpoint | What it does |
+|--------|----------|--------------|
+| `POST` | `/ask` | full response as JSON |
+| `POST` | `/ask/stream` | streaming response via SSE |
+| `GET` | `/health` | server + browser status |
+| `POST` | `/screenshot` | debug screenshot |
+| `POST` | `/session/invalidate` | clear saved session |
 
-| | Status |
-|---|--------|
-| ChatGPT | live |
-| Claude | working on it |
-
-**Features**
-
-| | Status |
-|---|--------|
-| Model switching — choose your LLM and model per request | working on it |
+> interactive docs → `http://localhost:8000/docs`
 
 ---
 
-## Installation
-
-tempLLM is on npm. Python dependencies and the Playwright browser install automatically on first run.
-
-```bash
-npm install -g templlm
-```
-
-> first install takes ~3-5 minutes — pip packages + Chromium download. subsequent installs are instant.
-
-After install you'll see:
+## CLI reference
 
 ```
-✓ Ready!
-
-  templlm init      ← run this first to set up your browser & login
-  templlm --help    ← see all commands
-```
-
-**Requirements**
-
-| Dependency | Version |
-|------------|---------|
-| Node.js | 18+ |
-| Python | 3.8+ |
-| Google Chrome | Latest (for CDP mode) |
-
-**Updating**
-
-```bash
-npm update -g templlm
+templlm init              first-time setup wizard
+templlm setup             re-login (session expired)
+templlm status            check server — start or stop
+templlm stop              kill background server
+templlm logs              tail the server log
+templlm "prompt"          one-shot prompt (fresh chat)
+templlm                   interactive REPL (context retained)
+templlm --version         print version
+templlm --help            all commands
 ```
 
 ---
 
-## Setup
+## connection modes
 
-Run once after install:
+### mode A — CDP *(recommended)*
 
-```bash
-templlm init
-```
+Attaches to a running Chrome instance via **Chrome DevTools Protocol** on `--remote-debugging-port=9222`. Playwright connects over WebSocket — no new process, just your existing browser.
 
-```
-┌────────────────────────────────────────┐
-│          templlm  ·  setup wizard       │
-└────────────────────────────────────────┘
+`templlm init` launches Chrome with the right flags automatically. Log in once, session is saved.
 
-Detected OS:  Windows
-Python:       ✓ 3.12  (python3)
+→ works with your real logged-in accounts
+→ session persists across restarts
+→ fastest and most stable
 
-Which connection mode?
+### mode B — headless
 
-  1  Mode A — CDP  (recommended)
-     Connect to your own Chrome with an active session
+Playwright spawns its own Chromium in the background. No Chrome install required.
 
-  2  Mode B — Headless
-     Playwright launches Chromium in the background
-```
-
-The wizard launches Chrome, waits for you to log in, and saves your session. **You only do this once.**
-
-If your session expires later, just run `templlm setup` to log in again.
+→ good for servers or CI
+→ unauthenticated unless you supply `session.json`
 
 ---
 
-## Connection Modes
+## configuration
 
-### Mode A — CDP *(recommended)*
-
-Uses the **Chrome DevTools Protocol** to attach to a running Chrome instance via a remote debugging port (`--remote-debugging-port=9222`). Playwright connects over WebSocket and controls it directly — no new process, just your existing browser.
-
-`templlm init` launches Chrome with the right flags automatically. You log in once, session is saved.
-
-- Works with your real logged-in accounts
-- Session persists across restarts, no re-login needed
-- Fastest and most stable
-
-### Mode B — Headless
-
-Playwright spawns its own Chromium process in the background. No Chrome install required.
-
-- Good for servers or CI environments
-- Unauthenticated by default unless you supply a saved `session.json`
-
----
-
-## CLI Reference
-
-```
-templlm init              First-time setup wizard
-templlm setup             Re-run login flow (session expired)
-templlm status            Check API status — start or stop the server
-templlm stop              Kill the background server
-templlm logs              Tail the server log file live
-templlm "prompt"          One-shot prompt (always a fresh chat)
-templlm                   Interactive REPL (context retained)
-templlm --version         Print version
-templlm --help            Show all commands
-```
-
----
-
-## Configuration
-
-`templlm init` creates a `.env` file automatically. You can edit it manually:
+`templlm init` writes this automatically. Edit if needed:
 
 ```dotenv
-CDP_URL=http://localhost:9222   # leave blank for headless mode
-
-HEADLESS=false                  # show/hide browser window in headless mode
-SESSION_FILE=./session.json     # where to persist your login session
-RESPONSE_TIMEOUT=120            # seconds before a request times out
+CDP_URL=http://localhost:9222   # blank = headless mode
+HEADLESS=false                  # show/hide browser in headless mode
+SESSION_FILE=./session.json
+RESPONSE_TIMEOUT=120
 HOST=0.0.0.0
 PORT=8000
 ```
 
 ---
 
-## Platform Setup
+## installation
 
 <details>
 <summary><b>Linux</b></summary>
 <br />
 
 ```bash
-# Arch / Manjaro
+# arch / manjaro
 sudo pacman -S python python-pip nodejs npm
 yay -S google-chrome
 
-# Ubuntu / Debian
+# ubuntu / debian
 sudo apt install python3 python3-pip nodejs npm
-# Chrome → https://google.com/chrome
+# chrome → https://google.com/chrome
 
-# Fedora
+# fedora
 sudo dnf install python3 python3-pip nodejs npm
 sudo dnf install google-chrome-stable
 ```
 
-> **PATH note:** npm global binaries land in `~/.local/bin` on some distros. If `templlm` is not found after install:
+> **PATH:** npm global bins land in `~/.local/bin` on some distros.
 > ```bash
 > echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 > ```
@@ -325,9 +264,6 @@ sudo dnf install google-chrome-stable
 ```bash
 brew install python node
 brew install --cask google-chrome
-
-npm install -g templlm
-templlm init
 ```
 
 </details>
@@ -340,18 +276,24 @@ templlm init
 winget install Python.Python.3
 winget install OpenJS.NodeJS
 winget install Google.Chrome
-
-npm install -g templlm
-templlm init
 ```
 
-> **Note:** Run PowerShell as Administrator for global npm installs, or configure a user-level prefix:
+> run PowerShell as Administrator for global npm installs, or:
 > ```powershell
 > npm config set prefix "$env:APPDATA\npm"
-> # then add %APPDATA%\npm to PATH in System Environment Variables
 > ```
 
 </details>
 
+then:
+
+```bash
+npm install -g templlm
+templlm init
+```
+
 ---
 
+<div align="center">
+  <sub>built with playwright · fastapi · CDP</sub>
+</div>
