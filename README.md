@@ -1,6 +1,6 @@
 <div align="center">
   <br />
-  <h1>tempLLM</h1>
+  <h1>templlm</h1>
   <p><strong>your browser is the API key.</strong></p>
   <p>pipe prompts through any LLM tab. get REST responses back.</p>
   <p><code>no key · no cost · no SDK</code></p>
@@ -35,7 +35,7 @@
 
 ## overview
 
-LLM providers give you their best models for free through a chat tab. Want the same models via API? That costs money. tempLLM bridges the gap.
+LLM providers give you their best models for free through a chat tab. Want the same models via API? That costs money. templlm bridges the gap.
 
 It connects to your browser session via **Chrome DevTools Protocol**, watches the chat, and exposes it as a local REST API. Any language, any framework, any project, if it can hit `localhost`, it can talk to your LLM.
 
