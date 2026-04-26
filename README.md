@@ -1,5 +1,5 @@
+<img width="1536" height="864" alt="image" src="https://github.com/user-attachments/assets/9fb68a90-5b8f-4845-b92b-74d36db0f921" />
 <div align="center">
-  <br />
   <h1>templlm</h1>
   <p><strong>your browser is the API key.</strong></p>
   <p>pipe prompts through any LLM tab. get REST responses back.</p>
